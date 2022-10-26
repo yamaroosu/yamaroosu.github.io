@@ -41,8 +41,18 @@
       <p><a href="https://www.twitch.tv/yamar0">My Twitch Channel!</a><p>
         <a href="https://steamcommunity.com/id/yamaroosu/" class="fa fa-steam"></a>
 <img src="https://1.bp.blogspot.com/-FZkOfZFYuIM/YDUp7eUjxzI/AAAAAAAA4FU/AAd64XiPIXI9-AAyCVXxt8N6BZVZuvv9ACLcBGAsYHQ/s0/Flag_of_Estonia.gif" alt="Italian Trulli">
-<audio controls autoplay>
+<iframe src="audio/lalalala.mp3" allow="autoplay" style="display:none" id="iframeAudio">
+</iframe> 
+  <audio controls autoplay>
   <source src="audio/lalalala.mp3" type="audio/mpeg">
 </audio>
+     var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+ <script>if (!isChrome){
+      $('#iframeAudio').remove()
+  }
+  else {
+      $('#playAudio').remove() // just to make sure that it will not have 2x audio in the background 
+  }
+    </script>
   </body>
 </html>
