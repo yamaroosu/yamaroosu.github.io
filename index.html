@@ -8,6 +8,12 @@
     <audio autoplay loop  id="playAudio">
     <source src="audio/lalalala.mp3">
 </audio>
+    
+    <script>
+  var audio = document.getElementById("myaudio");
+  audio.volume = 0.2;
+</script>
+    
     <script>
       var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
   if (!isChrome){
