@@ -1,0 +1,206 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    background-color: #ffffff;
+    color: #000000;
+    font-size: 16px;
+}
+
+body.dark-mode {
+    background-color: #2d2d2d;
+    color: #ffffff;
+}
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px;
+}
+
+#controls {
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+button {
+    padding: 10px;
+    cursor: pointer;
+    flex: 1 1 auto;
+    font-size: 14px;
+}
+
+#schedule {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ccc;
+    overflow-x: auto;
+}
+
+#header-row {
+    display: flex;
+    background-color: #f1f1f1;
+    border-bottom: 1px solid #ccc;
+    min-width: 600px; /* Mindestbreite für die Kopfzeile */
+}
+
+body.dark-mode #header-row {
+    background-color: #3d3d3d;
+    border-color: #555;
+}
+
+.time-column {
+    width: 80px;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    border-right: 1px solid #ccc;
+    flex-shrink: 0;
+}
+
+.day {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    border-right: 1px solid #ccc;
+    min-width: 100px; /* Mindestbreite für die Tage */
+}
+
+.day:last-child {
+    border-right: none;
+}
+
+#schedule-grid {
+    display: flex;
+    flex-direction: column;
+    min-width: 600px; /* Mindestbreite für den Stundenplan */
+}
+
+.row {
+    display: flex;
+    border-bottom: 1px solid #ccc;
+}
+
+.row:last-child {
+    border-bottom: none;
+}
+
+.cell {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    border-right: 1px solid #ccc;
+    min-width: 100px; /* Mindestbreite für die Zellen */
+}
+
+.cell:last-child {
+    border-right: none;
+}
+
+.subject {
+    padding: 10px;
+    background-color: #e0e0e0;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+body.dark-mode .subject {
+    background-color: #4d4d4d;
+}
+
+#currentTime {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+.details-form, .exam-form {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 5px;
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+}
+
+body.dark-mode .details-form, body.dark-mode .exam-form {
+    background-color: #3d3d3d;
+    color: #ffffff;
+}
+
+.details-form textarea, .exam-form textarea {
+    width: 100%;
+    margin-bottom: 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.details-form input {
+    width: 100%;
+    margin-bottom: 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.details-form button, .exam-form button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* Responsive Design für kleinere Bildschirme */
+@media (max-width: 600px) {
+    body {
+        font-size: 14px;
+    }
+
+    button {
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    .time-column, .day, .cell {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .subject {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    #currentTime {
+        font-size: 12px;
+    }
+
+    .details-form, .exam-form {
+        padding: 15px;
+    }
+
+    .details-form textarea, .exam-form textarea, .details-form input {
+        font-size: 12px;
+    }
+
+    .details-form button, .exam-form button {
+        font-size: 12px;
+        padding: 8px;
+    }
+}
