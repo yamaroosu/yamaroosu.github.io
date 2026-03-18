@@ -3,45 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Royale Multiplayer</title>
+    <title>Emoji Royale Multiplayer</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         body {
-            background-color: #2c3e50;
-            color: white;
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 20px;
+            background-color: #2c3e50; color: white; font-family: sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            margin: 0; padding: 20px;
         }
-        /* Menü für die Verbindung */
         #lobby {
-            background: #34495e;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 20px;
+            background: #34495e; padding: 20px; border-radius: 10px;
+            text-align: center; margin-bottom: 20px;
         }
         input { padding: 10px; font-size: 16px; margin: 5px; border-radius: 5px; border: none;}
         button {
-            padding: 10px 20px; font-size: 16px; font-weight: bold;
+            padding: 10px 15px; font-size: 14px; font-weight: bold;
             background-color: #3498db; color: white; border: none;
             border-radius: 5px; cursor: pointer; margin: 5px;
         }
         button:hover { background-color: #2980b9; }
         
-        /* Spielbereich (anfangs versteckt) */
         #gameContainer { display: none; flex-direction: column; align-items: center; }
         canvas {
-            background-color: #78e08f;
-            border: 4px solid #34495e;
-            border-radius: 10px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            transition: transform 0.5s; /* Für die Drehung des 2. Spielers */
+            background-color: #78e08f; border: 4px solid #34495e;
+            border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            transition: transform 0.5s;
         }
-        .controls { margin-top: 20px; }
+        .controls { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 400px;}
+        .btn-knight { background-color: #95a5a6; }
+        .btn-archer { background-color: #2ecc71; }
+        .btn-giant { background-color: #e67e22; }
+        
         #elixir { font-size: 24px; font-weight: bold; margin-bottom: 10px; color: #f1c40f; }
         #status { margin-top: 10px; color: #1abc9c; }
     </style>
@@ -49,8 +41,7 @@
 <body>
 
     <div id="lobby">
-        <h2>Multiplayer Setup</h2>
-        <p>Wähle deine Rolle:</p>
+        <h2>Emoji Royale Setup</h2>
         <button onclick="hostGame()">Spiel erstellen (Host)</button>
         <p id="myIdDisplay"></p>
         <hr style="border-color:#2c3e50; margin:20px 0;">
@@ -63,46 +54,43 @@
         <div id="elixir">Elixier: 5</div>
         <canvas id="gameCanvas" width="400" height="600"></canvas>
         <div class="controls">
-            <button id="spawnBtn" onclick="trySpawn()">Schwertkämpfer (3 Elixier)</button>
+            <button class="btn-knight" onclick="trySpawn('knight')">🗡️ Ritter (3)</button>
+            <button class="btn-archer" onclick="trySpawn('archer')">🏹 Schütze (2)</button>
+            <button class="btn-giant" onclick="trySpawn('giant')">👹 Riese (5)</button>
         </div>
     </div>
 
     <script>
-        // --- NETZWERK LOGIK (PeerJS) ---
-        let peer = null;
-        let connection = null;
-        let myRole = null; // 'host' oder 'guest'
+        // --- EINHEITEN DATENBANK ---
+        const UNIT_TYPES = {
+            knight: { emoji: '🗡️', cost: 3, hp: 120, damage: 15, speed: 1.2, range: 30 },
+            archer: { emoji: '🏹', cost: 2, hp: 60, damage: 10, speed: 1.5, range: 120 }, // Hohe Reichweite!
+            giant:  { emoji: '👹', cost: 5, hp: 400, damage: 25, speed: 0.7, range: 35 }
+        };
+
+        // --- NETZWERK LOGIK ---
+        let peer = null, connection = null, myRole = null;
 
         function hostGame() {
             document.getElementById('status').innerText = "Erstelle Spiel...";
-            peer = new Peer(); // Verbindet sich mit dem öffentlichen PeerJS Server
-            
+            peer = new Peer(); 
             peer.on('open', (id) => {
-                document.getElementById('myIdDisplay').innerHTML = `Deine ID: <b>${id}</b><br><small>Gib diese deinem Freund!</small>`;
+                document.getElementById('myIdDisplay').innerHTML = `Deine ID: <b>${id}</b>`;
                 document.getElementById('status').innerText = "Warte auf Mitspieler...";
             });
-
             peer.on('connection', (conn) => {
-                connection = conn;
-                myRole = 'host';
-                setupConnection();
+                connection = conn; myRole = 'host'; setupConnection();
             });
         }
 
         function joinGame() {
             const hostId = document.getElementById('joinId').value;
             if (!hostId) return alert("Bitte eine ID eingeben!");
-            
             document.getElementById('status').innerText = "Verbinde...";
             peer = new Peer();
-            
             peer.on('open', () => {
-                connection = peer.connect(hostId);
-                myRole = 'guest';
-                
+                connection = peer.connect(hostId); myRole = 'guest';
                 connection.on('open', () => {
-                    // Wenn der Gast beitritt, drehen wir das Spielfeld um 180 Grad, 
-                    // damit sein Turm auch unten ist!
                     document.getElementById('gameCanvas').style.transform = 'rotate(180deg)';
                     setupConnection();
                 });
@@ -113,70 +101,55 @@
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('gameContainer').style.display = 'flex';
             
-            // Empfange Daten vom anderen Spieler
             connection.on('data', (data) => {
-                if (data.type === 'spawn') {
-                    // Der andere Spieler hat gespawnt (isNetworkMessage = true)
-                    spawnUnit(data.team, data.x, true);
-                }
+                if (data.type === 'spawn') spawnUnit(data.team, data.x, data.unitType);
             });
-
             startGame();
         }
-
 
         // --- SPIEL LOGIK ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const elixirDisplay = document.getElementById('elixir');
 
-        let elixir = 5;
-        let units = [];
-        let towers = [];
-        let gameLoopId;
+        let elixir = 5, units = [], towers = [];
 
         function startGame() {
-            // Türme initialisieren (Host ist unten/Blau, Gast ist oben/Rot)
             towers = [
-                { team: 'guest', x: 200, y: 50, hp: 1000, maxHp: 1000, color: '#e74c3c' },
-                { team: 'host', x: 200, y: 550, hp: 1000, maxHp: 1000, color: '#3498db' }
+                { team: 'guest', x: 200, y: 50, hp: 1500, maxHp: 1500, color: '#e74c3c', emoji: '🏰' },
+                { team: 'host', x: 200, y: 550, hp: 1500, maxHp: 1500, color: '#3498db', emoji: '🏰' }
             ];
-
-            // Elixier generieren
             setInterval(() => {
-                if (elixir < 10) { 
-                    elixir++; 
-                    elixirDisplay.innerText = `Elixier: ${elixir}`; 
-                }
+                if (elixir < 10) { elixir++; elixirDisplay.innerText = `Elixier: ${elixir}`; }
             }, 1000);
-
-            update(); // Spielschleife starten
+            update(); 
         }
 
-        function trySpawn() {
-            if (elixir < 3) return; // Nicht genug Elixier
+        function trySpawn(type) {
+            const cost = UNIT_TYPES[type].cost;
+            if (elixir < cost) return; 
             
-            elixir -= 3;
+            elixir -= cost;
             elixirDisplay.innerText = `Elixier: ${elixir}`;
 
-            // Eigene Einheit lokal spawnen
-            let startX = 200 + (Math.random() * 40 - 20); // Leicht versetzt
-            spawnUnit(myRole, startX, false);
-
-            // Dem anderen Spieler Bescheid geben!
-            connection.send({ type: 'spawn', team: myRole, x: startX });
+            let startX = 200 + (Math.random() * 60 - 30); // Breiterer Spawn-Bereich
+            spawnUnit(myRole, startX, type);
+            connection.send({ type: 'spawn', team: myRole, x: startX, unitType: type });
         }
 
-        function spawnUnit(team, xPos, isNetworkMessage) {
+        function spawnUnit(team, xPos, type) {
+            const stats = UNIT_TYPES[type];
             units.push({
                 team: team,
+                type: type,
+                emoji: stats.emoji,
                 x: xPos,
-                y: team === 'host' ? 500 : 100, // Host startet unten, Gast oben
-                hp: 100,
-                damage: 10,
-                speed: team === 'host' ? -1.5 : 1.5, // Host läuft hoch, Gast läuft runter
-                radius: 10,
-                color: team === 'host' ? '#3498db' : '#e74c3c',
+                y: team === 'host' ? 500 : 100,
+                hp: stats.hp,
+                maxHp: stats.hp,
+                damage: stats.damage,
+                speed: team === 'host' ? -stats.speed : stats.speed,
+                range: stats.range,
                 attackCooldown: 0
             });
         }
@@ -185,6 +158,12 @@
             ctx.fillStyle = tower.color;
             ctx.fillRect(tower.x - 30, tower.y - 30, 60, 60);
             
+            // Emoji auf dem Turm
+            ctx.font = "30px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(tower.emoji, tower.x, tower.y);
+
             // Lebensbalken
             ctx.fillStyle = 'red';
             ctx.fillRect(tower.x - 30, tower.y - 40, 60, 5);
@@ -195,19 +174,22 @@
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Türme
+            // Zeichne eine Mittellinie als Brücke/Fluss-Ersatz
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(400, 300); ctx.stroke();
+
             towers.forEach(drawTower);
 
-            // Einheiten
             for (let i = units.length - 1; i >= 0; i--) {
                 let u = units[i];
                 let isMoving = true;
 
                 if (u.attackCooldown > 0) u.attackCooldown--;
 
-                // Turm-Kollision
+                // Turm-Kollision (berücksichtigt jetzt die Reichweite!)
                 let targetTower = towers.find(t => t.team !== u.team);
-                if (targetTower && Math.abs(u.y - targetTower.y) < 50) {
+                if (targetTower && Math.abs(u.y - targetTower.y) < u.range + 30) {
                     isMoving = false;
                     if (u.attackCooldown === 0) {
                         targetTower.hp -= u.damage;
@@ -215,8 +197,8 @@
                     }
                 }
 
-                // Gegner-Kollision
-                let enemy = units.find(e => e.team !== u.team && Math.hypot(e.x - u.x, e.y - u.y) < 25);
+                // Gegner-Kollision (berücksichtigt Reichweite!)
+                let enemy = units.find(e => e.team !== u.team && Math.hypot(e.x - u.x, e.y - u.y) < u.range);
                 if (enemy) {
                     isMoving = false;
                     if (u.attackCooldown === 0) {
@@ -227,18 +209,21 @@
 
                 if (isMoving) u.y += u.speed;
 
-                // Zeichnen
-                ctx.beginPath();
-                ctx.arc(u.x, u.y, u.radius, 0, Math.PI * 2);
-                ctx.fillStyle = u.color;
-                ctx.fill();
-                ctx.stroke();
-                ctx.closePath();
+                // Emoji zeichnen statt Kreis
+                ctx.font = "24px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(u.emoji, u.x, u.y);
+
+                // Kleiner Lebensbalken über der Einheit
+                ctx.fillStyle = 'red';
+                ctx.fillRect(u.x - 10, u.y - 15, 20, 3);
+                ctx.fillStyle = '#2ecc71'; // Helles Grün
+                ctx.fillRect(u.x - 10, u.y - 15, 20 * (u.hp / u.maxHp), 3);
 
                 if (u.hp <= 0) units.splice(i, 1);
             }
 
-            // Spielende
             if (towers[0].hp <= 0 || towers[1].hp <= 0) {
                 let winner = towers[0].hp <= 0 ? "Blau (Host)" : "Rot (Gast)";
                 alert(`Spiel vorbei! ${winner} gewinnt!`);
@@ -246,7 +231,7 @@
                 return;
             }
 
-            gameLoopId = requestAnimationFrame(update);
+            requestAnimationFrame(update);
         }
     </script>
 </body>
