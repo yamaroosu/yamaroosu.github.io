@@ -3,32 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stundenplan 2025</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Mini Royale Clone</title>
+    <style>
+        body {
+            background-color: #2c3e50;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            background-color: #78e08f; /* Gras-Farbe */
+            border: 4px solid #34495e;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2980b9; }
+        #elixir { font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #f1c40f; }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <h1>Stundenplan 2025</h1>
-        <div id="controls">
-            <button id="prevWeek">&lt; Vorherige Woche</button>
-            <button id="nextWeek">Nächste Woche &gt;</button>
-            <button id="darkMode">Dark Mode</button>
-            <button id="addSubject">Fach hinzufügen</button>
-            <button id="export">Exportieren</button>
-        </div>
-        <div id="schedule">
-            <div id="header-row">
-                <div class="time-column"></div>
-                <div class="day">Montag</div>
-                <div class="day">Dienstag</div>
-                <div class="day">Mittwoch</div>
-                <div class="day">Donnerstag</div>
-                <div class="day">Freitag</div>
-            </div>
-            <div id="schedule-grid"></div>
-        </div>
-        <div id="currentTime">Aktuelle Zeit: <span id="time"></span></div>
+
+    <div id="elixir">Elixier: 5</div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    
+    <div class="controls">
+        <button onclick="spawnUnit('player')">Schwertkämpfer (3 Elixier)</button>
     </div>
-    <script src="script.js"></script>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const elixirDisplay = document.getElementById('elixir');
+
+        // Spielstatus
+        let elixir = 5;
+        let units = [];
+        let towers = [
+            { team: 'enemy', x: 200, y: 50, hp: 1000, maxHp: 1000, color: '#e74c3c' },
+            { team: 'player', x: 200, y: 550, hp: 1000, maxHp: 1000, color: '#3498db' }
+        ];
+
+        // Elixier-Generierung
+        setInterval(() => {
+            if (elixir < 10) { elixir++; elixirDisplay.innerText = `Elixier: ${elixir}`; }
+        }, 1000);
+
+        // Simple "KI" spawnt gelegentlich Gegner
+        setInterval(() => {
+            if (Math.random() > 0.5) spawnUnit('enemy', true);
+        }, 3000);
+
+        function spawnUnit(team, isFree = false) {
+            if (team === 'player' && !isFree) {
+                if (elixir < 3) return;
+                elixir -= 3;
+                elixirDisplay.innerText = `Elixier: ${elixir}`;
+            }
+
+            units.push({
+                team: team,
+                x: 200 + (Math.random() * 40 - 20), // Leicht versetzt
+                y: team === 'player' ? 500 : 100,
+                hp: 100,
+                damage: 10,
+                speed: team === 'player' ? -1.5 : 1.5, // Spieler nach oben, Gegner nach unten
+                radius: 10,
+                color: team === 'player' ? '#3498db' : '#e74c3c',
+                attackCooldown: 0
+            });
+        }
+
+        function drawTower(tower) {
+            ctx.fillStyle = tower.color;
+            ctx.fillRect(tower.x - 30, tower.y - 30, 60, 60);
+            
+            // Lebensbalken
+            ctx.fillStyle = 'red';
+            ctx.fillRect(tower.x - 30, tower.y - 40, 60, 5);
+            ctx.fillStyle = 'green';
+            ctx.fillRect(tower.x - 30, tower.y - 40, 60 * (tower.hp / tower.maxHp), 5);
+        }
+
+        function drawUnit(unit) {
+            ctx.beginPath();
+            ctx.arc(unit.x, unit.y, unit.radius, 0, Math.PI * 2);
+            ctx.fillStyle = unit.color;
+            ctx.fill();
+            ctx.strokeStyle = 'black';
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Türme zeichnen
+            towers.forEach(drawTower);
+
+            // Einheiten updaten und zeichnen
+            for (let i = units.length - 1; i >= 0; i--) {
+                let u = units[i];
+                let isMoving = true;
+
+                if (u.attackCooldown > 0) u.attackCooldown--;
+
+                // Kollision mit Türmen
+                let targetTower = towers.find(t => t.team !== u.team);
+                if (targetTower && Math.abs(u.y - targetTower.y) < 50) {
+                    isMoving = false;
+                    if (u.attackCooldown === 0) {
+                        targetTower.hp -= u.damage;
+                        u.attackCooldown = 60; // 1 Angriff pro Sekunde (bei 60fps)
+                    }
+                }
+
+                // Kollision mit gegnerischen Einheiten
+                let enemy = units.find(e => e.team !== u.team && Math.hypot(e.x - u.x, e.y - u.y) < 25);
+                if (enemy) {
+                    isMoving = false;
+                    if (u.attackCooldown === 0) {
+                        enemy.hp -= u.damage;
+                        u.attackCooldown = 60;
+                    }
+                }
+
+                // Bewegen
+                if (isMoving) {
+                    u.y += u.speed;
+                }
+
+                drawUnit(u);
+
+                // Tote Einheiten entfernen
+                if (u.hp <= 0) units.splice(i, 1);
+            }
+
+            // Spielende prüfen
+            if (towers[0].hp <= 0) { alert("Gewonnen!"); location.reload(); }
+            if (towers[1].hp <= 0) { alert("Verloren!"); location.reload(); }
+
+            requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
 </body>
 </html>
