@@ -3,236 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emoji Royale Multiplayer</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>2D Browser League</title>
     <style>
         body {
-            background-color: #2c3e50; color: white; font-family: sans-serif;
-            display: flex; flex-direction: column; align-items: center;
-            margin: 0; padding: 20px;
+            margin: 0;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        #lobby {
-            background: #34495e; padding: 20px; border-radius: 10px;
-            text-align: center; margin-bottom: 20px;
+        h1 { margin-top: 20px; margin-bottom: 5px; }
+        #scoreboard {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 30px;
+            border-radius: 10px;
         }
-        input { padding: 10px; font-size: 16px; margin: 5px; border-radius: 5px; border: none;}
-        button {
-            padding: 10px 15px; font-size: 14px; font-weight: bold;
-            background-color: #3498db; color: white; border: none;
-            border-radius: 5px; cursor: pointer; margin: 5px;
-        }
-        button:hover { background-color: #2980b9; }
-        
-        #gameContainer { display: none; flex-direction: column; align-items: center; }
+        .blue-score { color: #3498db; }
+        .red-score { color: #e74c3c; }
         canvas {
-            background-color: #78e08f; border: 4px solid #34495e;
-            border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            transition: transform 0.5s;
+            background-color: #27ae60; /* Rasenfarbe */
+            border: 4px solid #ecf0f1;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border-radius: 10px;
         }
-        .controls { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 400px;}
-        .btn-knight { background-color: #95a5a6; }
-        .btn-archer { background-color: #2ecc71; }
-        .btn-giant { background-color: #e67e22; }
-        
-        #elixir { font-size: 24px; font-weight: bold; margin-bottom: 10px; color: #f1c40f; }
-        #status { margin-top: 10px; color: #1abc9c; }
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 40px;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="lobby">
-        <h2>Emoji Royale Setup</h2>
-        <button onclick="hostGame()">Spiel erstellen (Host)</button>
-        <p id="myIdDisplay"></p>
-        <hr style="border-color:#2c3e50; margin:20px 0;">
-        <input type="text" id="joinId" placeholder="Host-ID eingeben">
-        <button onclick="joinGame()">Beitreten (Gast)</button>
-        <p id="status"></p>
+    <h1>🚀 Browser League 🚗</h1>
+    <div id="scoreboard">
+        <span class="blue-score" id="score1">0</span> - <span class="red-score" id="score2">0</span>
     </div>
+    
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <div id="gameContainer">
-        <div id="elixir">Elixier: 5</div>
-        <canvas id="gameCanvas" width="400" height="600"></canvas>
-        <div class="controls">
-            <button class="btn-knight" onclick="trySpawn('knight')">🗡️ Ritter (3)</button>
-            <button class="btn-archer" onclick="trySpawn('archer')">🏹 Schütze (2)</button>
-            <button class="btn-giant" onclick="trySpawn('giant')">👹 Riese (5)</button>
-        </div>
+    <div class="controls">
+        <div><strong>Spieler 1 (Blau):</strong><br>W = Gas<br>S = Bremse/Rückwärts<br>A / D = Lenken</div>
+        <div><strong>Spieler 2 (Rot):</strong><br>Aufwärts = Gas<br>Abwärts = Bremse<br>Links / Rechts = Lenken</div>
     </div>
 
     <script>
-        // --- EINHEITEN DATENBANK ---
-        const UNIT_TYPES = {
-            knight: { emoji: '🗡️', cost: 3, hp: 120, damage: 15, speed: 1.2, range: 30 },
-            archer: { emoji: '🏹', cost: 2, hp: 60, damage: 10, speed: 1.5, range: 120 }, // Hohe Reichweite!
-            giant:  { emoji: '👹', cost: 5, hp: 400, damage: 25, speed: 0.7, range: 35 }
-        };
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
 
-        // --- NETZWERK LOGIK ---
-        let peer = null, connection = null, myRole = null;
+        // Spiel-Status
+        let scoreBlue = 0;
+        let scoreRed = 0;
+        const keys = {};
 
-        function hostGame() {
-            document.getElementById('status').innerText = "Erstelle Spiel...";
-            peer = new Peer(); 
-            peer.on('open', (id) => {
-                document.getElementById('myIdDisplay').innerHTML = `Deine ID: <b>${id}</b>`;
-                document.getElementById('status').innerText = "Warte auf Mitspieler...";
-            });
-            peer.on('connection', (conn) => {
-                connection = conn; myRole = 'host'; setupConnection();
-            });
+        // Event Listener für Tastatur
+        window.addEventListener("keydown", (e) => keys[e.key] = true);
+        window.addEventListener("keyup", (e) => keys[e.key] = false);
+
+        // Klassen-Definitionen
+        class Entity {
+            constructor(x, y, radius, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = radius;
+                this.color = color;
+                this.friction = 0.98;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            update() {
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wand-Kollision (Banden)
+                if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -0.8; }
+                if (this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.vx *= -0.8; }
+                
+                // Tore sind an den Seitenmitte (y zwischen 150 und 350)
+                if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -0.8; }
+                if (this.y + this.radius > canvas.height) { this.y = canvas.height - this.radius; this.vy *= -0.8; }
+            }
         }
 
-        function joinGame() {
-            const hostId = document.getElementById('joinId').value;
-            if (!hostId) return alert("Bitte eine ID eingeben!");
-            document.getElementById('status').innerText = "Verbinde...";
-            peer = new Peer();
-            peer.on('open', () => {
-                connection = peer.connect(hostId); myRole = 'guest';
-                connection.on('open', () => {
-                    document.getElementById('gameCanvas').style.transform = 'rotate(180deg)';
-                    setupConnection();
-                });
-            });
+        class Car extends Entity {
+            constructor(x, y, color) {
+                super(x, y, 20, color);
+                this.angle = 0;
+                this.speed = 0.5;
+                this.turnSpeed = 0.08;
+                this.friction = 0.94; // Autos bremsen schneller ab als der Ball
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                // Auto-Körper
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-20, -15, 40, 30);
+                
+                // Windschutzscheibe (um die Richtung zu sehen)
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(5, -10, 10, 20);
+                
+                ctx.restore();
+            }
+
+            accelerate(dir) {
+                this.vx += Math.cos(this.angle) * this.speed * dir;
+                this.vy += Math.sin(this.angle) * this.speed * dir;
+            }
         }
 
-        function setupConnection() {
-            document.getElementById('lobby').style.display = 'none';
-            document.getElementById('gameContainer').style.display = 'flex';
+        // Instanzen erstellen
+        let p1 = new Car(100, 250, "#3498db");
+        let p2 = new Car(700, 250, "#e74c3c");
+        p2.angle = Math.PI; // Rotes Auto schaut nach links
+        let ball = new Entity(400, 250, 15, "#ecf0f1");
+        ball.friction = 0.99; // Ball rollt länger
+
+        // Kollisions-Logik (Kreise)
+        function checkCollision(obj1, obj2) {
+            let dx = obj1.x - obj2.x;
+            let dy = obj1.y - obj2.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
             
-            connection.on('data', (data) => {
-                if (data.type === 'spawn') spawnUnit(data.team, data.x, data.unitType);
-            });
-            startGame();
+            if (dist < obj1.radius + obj2.radius) {
+                // Trennen, damit sie nicht stecken bleiben
+                let overlap = (obj1.radius + obj2.radius) - dist;
+                let nx = dx / dist;
+                let ny = dy / dist;
+                
+                obj1.x += nx * overlap / 2;
+                obj1.y += ny * overlap / 2;
+                obj2.x -= nx * overlap / 2;
+                obj2.y -= ny * overlap / 2;
+
+                // Impulse austauschen
+                let kx = (obj1.vx - obj2.vx);
+                let ky = (obj1.vy - obj2.vy);
+                let p = 2 * (nx * kx + ny * ky) / 2;
+                
+                obj1.vx -= p * nx;
+                obj1.vy -= p * ny;
+                obj2.vx += p * nx;
+                obj2.vy += p * ny;
+                
+                // Wenn Auto auf Ball trifft, etwas mehr Wucht geben
+                if (obj1 === ball || obj2 === ball) {
+                    ball.vx *= 1.2;
+                    ball.vy *= 1.2;
+                }
+            }
         }
 
-        // --- SPIEL LOGIK ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const elixirDisplay = document.getElementById('elixir');
-
-        let elixir = 5, units = [], towers = [];
-
-        function startGame() {
-            towers = [
-                { team: 'guest', x: 200, y: 50, hp: 1500, maxHp: 1500, color: '#e74c3c', emoji: '🏰' },
-                { team: 'host', x: 200, y: 550, hp: 1500, maxHp: 1500, color: '#3498db', emoji: '🏰' }
-            ];
-            setInterval(() => {
-                if (elixir < 10) { elixir++; elixirDisplay.innerText = `Elixier: ${elixir}`; }
-            }, 1000);
-            update(); 
+        function resetPositions() {
+            p1.x = 100; p1.y = 250; p1.vx = 0; p1.vy = 0; p1.angle = 0;
+            p2.x = 700; p2.y = 250; p2.vx = 0; p2.vy = 0; p2.angle = Math.PI;
+            ball.x = 400; ball.y = 250; ball.vx = 0; ball.vy = 0;
         }
 
-        function trySpawn(type) {
-            const cost = UNIT_TYPES[type].cost;
-            if (elixir < cost) return; 
-            
-            elixir -= cost;
-            elixirDisplay.innerText = `Elixier: ${elixir}`;
-
-            let startX = 200 + (Math.random() * 60 - 30); // Breiterer Spawn-Bereich
-            spawnUnit(myRole, startX, type);
-            connection.send({ type: 'spawn', team: myRole, x: startX, unitType: type });
+        function drawGoals() {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            // Linkes Tor (Rot punktet)
+            ctx.fillRect(0, 150, 20, 200);
+            // Rechtes Tor (Blau punktet)
+            ctx.fillRect(780, 150, 20, 200);
         }
 
-        function spawnUnit(team, xPos, type) {
-            const stats = UNIT_TYPES[type];
-            units.push({
-                team: team,
-                type: type,
-                emoji: stats.emoji,
-                x: xPos,
-                y: team === 'host' ? 500 : 100,
-                hp: stats.hp,
-                maxHp: stats.hp,
-                damage: stats.damage,
-                speed: team === 'host' ? -stats.speed : stats.speed,
-                range: stats.range,
-                attackCooldown: 0
-            });
-        }
-
-        function drawTower(tower) {
-            ctx.fillStyle = tower.color;
-            ctx.fillRect(tower.x - 30, tower.y - 30, 60, 60);
-            
-            // Emoji auf dem Turm
-            ctx.font = "30px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(tower.emoji, tower.x, tower.y);
-
-            // Lebensbalken
-            ctx.fillStyle = 'red';
-            ctx.fillRect(tower.x - 30, tower.y - 40, 60, 5);
-            ctx.fillStyle = 'green';
-            ctx.fillRect(tower.x - 30, tower.y - 40, 60 * (tower.hp / tower.maxHp), 5);
-        }
-
-        function update() {
+        // Haupt-Game-Loop
+        function gameLoop() {
+            // Hintergrund zeichnen
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGoals();
 
-            // Zeichne eine Mittellinie als Brücke/Fluss-Ersatz
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(400, 300); ctx.stroke();
+            // Steuerung Spieler 1 (W,A,S,D)
+            if (keys["w"] || keys["W"]) p1.accelerate(1);
+            if (keys["s"] || keys["S"]) p1.accelerate(-0.5);
+            if (keys["a"] || keys["A"]) p1.angle -= p1.turnSpeed;
+            if (keys["d"] || keys["D"]) p1.angle += p1.turnSpeed;
 
-            towers.forEach(drawTower);
+            // Steuerung Spieler 2 (Pfeiltasten)
+            if (keys["ArrowUp"]) p2.accelerate(1);
+            if (keys["ArrowDown"]) p2.accelerate(-0.5);
+            if (keys["ArrowLeft"]) p2.angle -= p2.turnSpeed;
+            if (keys["ArrowRight"]) p2.angle += p2.turnSpeed;
 
-            for (let i = units.length - 1; i >= 0; i--) {
-                let u = units[i];
-                let isMoving = true;
+            // Physik Updates
+            p1.update();
+            p2.update();
+            ball.update();
 
-                if (u.attackCooldown > 0) u.attackCooldown--;
+            // Kollisionen prüfen
+            checkCollision(p1, p2);
+            checkCollision(p1, ball);
+            checkCollision(p2, ball);
 
-                // Turm-Kollision (berücksichtigt jetzt die Reichweite!)
-                let targetTower = towers.find(t => t.team !== u.team);
-                if (targetTower && Math.abs(u.y - targetTower.y) < u.range + 30) {
-                    isMoving = false;
-                    if (u.attackCooldown === 0) {
-                        targetTower.hp -= u.damage;
-                        u.attackCooldown = 60; 
-                    }
-                }
-
-                // Gegner-Kollision (berücksichtigt Reichweite!)
-                let enemy = units.find(e => e.team !== u.team && Math.hypot(e.x - u.x, e.y - u.y) < u.range);
-                if (enemy) {
-                    isMoving = false;
-                    if (u.attackCooldown === 0) {
-                        enemy.hp -= u.damage;
-                        u.attackCooldown = 60;
-                    }
-                }
-
-                if (isMoving) u.y += u.speed;
-
-                // Emoji zeichnen statt Kreis
-                ctx.font = "24px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(u.emoji, u.x, u.y);
-
-                // Kleiner Lebensbalken über der Einheit
-                ctx.fillStyle = 'red';
-                ctx.fillRect(u.x - 10, u.y - 15, 20, 3);
-                ctx.fillStyle = '#2ecc71'; // Helles Grün
-                ctx.fillRect(u.x - 10, u.y - 15, 20 * (u.hp / u.maxHp), 3);
-
-                if (u.hp <= 0) units.splice(i, 1);
+            // Tor-Logik prüfen
+            if (ball.x - ball.radius < 20 && ball.y > 150 && ball.y < 350) {
+                scoreRed++;
+                document.getElementById("score2").innerText = scoreRed;
+                resetPositions();
+            } else if (ball.x + ball.radius > 780 && ball.y > 150 && ball.y < 350) {
+                scoreBlue++;
+                document.getElementById("score1").innerText = scoreBlue;
+                resetPositions();
             }
 
-            if (towers[0].hp <= 0 || towers[1].hp <= 0) {
-                let winner = towers[0].hp <= 0 ? "Blau (Host)" : "Rot (Gast)";
-                alert(`Spiel vorbei! ${winner} gewinnt!`);
-                location.reload();
-                return;
-            }
+            // Zeichnen
+            p1.draw();
+            p2.draw();
+            ball.draw();
 
-            requestAnimationFrame(update);
+            requestAnimationFrame(gameLoop);
         }
+
+        // Spiel starten
+        gameLoop();
     </script>
 </body>
 </html>
